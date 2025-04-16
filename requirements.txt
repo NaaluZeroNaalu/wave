@@ -1,4 +1,4 @@
 openpyxl
 bs4
 dotenv
-xlsxwritter
+XlsxWriter
