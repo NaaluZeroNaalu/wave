@@ -72,11 +72,21 @@ def create_combined_excel():
     output.seek(0)
     return output
 
+st.divider()
 if st.session_state.ncr == None:
     st.write("Run to get output")
 else:
     st.write("NCR Report")
-    st.dataframe(st.session_state.ncrdf)
+    # st.write(st.session_state.ncrdf)
+    for section_name, section_data in st.session_state.ncrdf.items():
+        st.subheader(section_name)
+        
+        sites_data = section_data["Sites"]
+        df = pd.DataFrame.from_dict(sites_data, orient='index')
+        df.index.name = "Site"
+        df.reset_index(inplace=True)
+        
+        st.dataframe(df, use_container_width=True)
     st.download_button(
             label="📥 Download Combined Excel Report",
             data=st.session_state.ncr,
@@ -85,11 +95,12 @@ else:
         )
     
 
+st.divider()
 if st.session_state.structure_and_finishing == None:
     st.write("Run to get output")
 else:
     st.write("structure_and_finishing")
-    # st.write(st.session_state.structure_and_finishing)
+    st.write(st.session_state.structure_and_finishingdf)
     st.download_button(
             label="📥 Download Excel Report",
             data=st.session_state.structure_and_finishing,
@@ -98,11 +109,12 @@ else:
         )  
    
 
+st.divider()
 if st.session_state.shedule == None:
     st.write("Run to get output")
 else:
     st.write("Shedule Report")
-    # st.write(st.session_state.shedule)  
+    st.write(st.session_state.shedulef)  
     st.download_button(
             label="📥 Download Excel Report",
             data=st.session_state.shedule,
@@ -110,11 +122,23 @@ else:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )  
    
+st.divider()
 if st.session_state.safety == None:
     st.write("Run to get output")
 else:
     st.write("Safety Report")
-    st.write(st.session_state.safety)  
+    # st.write(st.session_state.safetydf)  
+    section_name = "Safety"
+    section = st.session_state.safetydf[section_name]
+
+    # Convert nested site counts to DataFrame
+    df = pd.DataFrame.from_dict(section["Sites"], orient='index')
+    df.index.name = "Site"
+    df.reset_index(inplace=True)
+
+    # Display section title and table
+    st.subheader(section_name)
+    st.dataframe(df, use_container_width=True)
     st.download_button(
             label="📥 Download Excel Report",
             data=st.session_state.safety,
@@ -124,11 +148,14 @@ else:
     
     
 
+st.divider()
 if st.session_state.house == None:
     st.write("Run to get output")
 else:
     st.write("House Report")
-    # st.write(st.session_state.house) 
+    # st.write(st.session_state.housedf) 
+    df_error = pd.DataFrame([{"Type": "Error", "Message": st.session_state.housedf["error"]}])
+    st.dataframe(df_error, use_container_width=True)
     st.download_button(
             label="📥 Download Excel Report",
             data=st.session_state.house,
@@ -137,10 +164,28 @@ else:
         ) 
    
 
+# if any(st.session_state.get(key) is not None for key in ['ncr', 'structure_and_finishing', 'shedule', 'safety', 'house']):
+#     st.download_button(
+#         label="📥 Download All Reports",
+#         data=create_combined_excel(),
+#         file_name="All_Reports.xlsx",
+#         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+#     )
+
 if any(st.session_state.get(key) is not None for key in ['ncr', 'structure_and_finishing', 'shedule', 'safety', 'house']):
-    st.download_button(
-        label="📥 Download All Reports",
-        data=create_combined_excel(),
-        file_name="All_Reports.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    
+    # Read the file from disk as bytes
+    file_path = "combined_report.xlsx"  # <-- Change this to your actual file path
+    try:
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+
+        # Download button for the existing file
+        st.download_button(
+            label="📥 Download All Reports",
+            data=file_bytes,
+            file_name="All_Reports.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except FileNotFoundError:
+        st.error(f"File not found at path: {file_path}")
