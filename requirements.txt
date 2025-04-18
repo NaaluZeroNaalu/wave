@@ -2,3 +2,4 @@ openpyxl
 bs4
 dotenv
 XlsxWriter
+ibm_boto3
