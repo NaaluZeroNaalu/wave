@@ -87,7 +87,7 @@ Return only the JSON object, no code, no explanation, just the formatted JSON.
     return response.json()['results'][0]['generated_text'].strip()
 
 # Function to create chunks and process data
-def createChunk(result_json, chunk_size=2000):
+def createChunk(result_json, chunk_size=1000):
     num_rows = len(result_json)
     num_chunks = (num_rows + chunk_size - 1) // chunk_size  
     all_chunks = {} 
