@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import json
+import io
 
 
 WATSONX_API_URL = "https://us-south.ml.cloud.ibm.com/ml/v1/text/generation?version=2023-05-29"
@@ -92,7 +93,8 @@ def structure4567(file):
     # st.write(f"Processing file: `{file.name}`")
     
     try:
-        excel_data = pd.ExcelFile(file)
+        # excel_data = pd.ExcelFile(file)
+        excel_data = file
         for sheet in excel_data.sheet_names:
             if sheet in sheets:
                 st.markdown(f"#### Sheet: `{sheet}`")
@@ -114,9 +116,10 @@ def structure4567(file):
 
 def Tower_4_Finishing_Tracker(file):
     sheets = ["TOWER 4 FINISHING."]
-    st.write(f"Processing file: `{file.name}`")
+    # st.write(f"Processing file: `{file}`")
     try:
-        excel_data = pd.ExcelFile(file)
+        # excel_data = pd.ExcelFile(file)
+        excel_data = file
         for sheet in excel_data.sheet_names:
              if sheet in sheets:
                 #   st.markdown(f"#### Sheet: `{sheet}`")
@@ -138,9 +141,10 @@ def Tower_4_Finishing_Tracker(file):
 
 def Tower_5_Finishing_Tracker(file):
     sheets = ["TOWER 5 FINISHING."]
-    st.write(f"Processing file: `{file.name}`")
+    # st.write(f"Processing file: `{file}`")
     try:
-        excel_data = pd.ExcelFile(file)
+        # excel_data = pd.ExcelFile(file)
+        excel_data = file
         for sheet in excel_data.sheet_names:
              if sheet in sheets:
                   st.markdown(f"#### Sheet: `{sheet}`")
@@ -162,9 +166,10 @@ def Tower_5_Finishing_Tracker(file):
 
 def Tower_G_Finishing_Tracker(file):
     sheets = ["Tower G Finishing"]
-    st.write(f"Processing file: `{file.name}`")
+    st.write(f"Processing file: `{file}`")
     try:
-        excel_data = pd.ExcelFile(file)
+        # excel_data = pd.ExcelFile(file)
+        excel_data = file
         for sheet in excel_data.sheet_names:
              if sheet in sheets:
                   st.markdown(f"#### Sheet: `{sheet}`")
@@ -186,9 +191,10 @@ def Tower_G_Finishing_Tracker(file):
 
 def Tower_H_Finishing_Tracker(file):
     sheets = ["Pre- Construction Activities"]
-    st.write(f"Processing file: `{file.name}`")
+    # st.write(f"Processing file: `{file}`")
     try:
-        excel_data = pd.ExcelFile(file)
+        # excel_data = pd.ExcelFile(file)
+        excel_data = file
         for sheet in excel_data.sheet_names:
              if sheet in sheets:
                   st.markdown(f"#### Sheet: `{sheet}`")
@@ -216,21 +222,31 @@ def Getprecentage(file):
     if file:
         for uploaded_file in file:
             # st.markdown(f"### 📁 File: `{uploaded_file.name}`")
-            if uploaded_file.name.startswith("Structure Work Tracker Tower 4,5,6 & 7"):
+            if uploaded_file.startswith("Structure Work Tracker Tower 4,5,6 & 7"):
+                response = st.session_state.cos_client.get_object(Bucket="projectreport", Key=uploaded_file)
+                excel = pd.ExcelFile(io.BytesIO(response['Body'].read()))
                 # st.markdown(f"### 📁 File: `{uploaded_file.name}`")     
-                structure4567(uploaded_file)
-            elif uploaded_file.name.startswith("Tower 4 Finishing Tracker"):
+                structure4567(excel)
+            elif uploaded_file.startswith("Tower 4 Finishing Tracker"):
+                # st.markdown(f"### 📁 File: `{uploaded_file.name}`") 
+                response = st.session_state.cos_client.get_object(Bucket="projectreport", Key=uploaded_file)
+                excel = pd.ExcelFile(io.BytesIO(response['Body'].read())) 
+                Tower_4_Finishing_Tracker(excel)   
+            elif uploaded_file.startswith("Tower 5 Finishing Tracker"):
+                # st.markdown(f"### 📁 File: `{uploaded_file.name}`")
+                response = st.session_state.cos_client.get_object(Bucket="projectreport", Key=uploaded_file)
+                excel = pd.ExcelFile(io.BytesIO(response['Body'].read()))  
+                Tower_5_Finishing_Tracker(excel)   
+            elif uploaded_file.startswith("Tower G Finishing Tracker"):
                 # st.markdown(f"### 📁 File: `{uploaded_file.name}`")  
-                Tower_4_Finishing_Tracker(uploaded_file)   
-            elif uploaded_file.name.startswith("Tower 5 Finishing Tracker"):
+                response = st.session_state.cos_client.get_object(Bucket="projectreport", Key=uploaded_file)
+                excel = pd.ExcelFile(io.BytesIO(response['Body'].read()))
+                Tower_G_Finishing_Tracker(excel) 
+            elif uploaded_file.startswith("Tower H Finishing Tracker"):
                 # st.markdown(f"### 📁 File: `{uploaded_file.name}`")  
-                Tower_5_Finishing_Tracker(uploaded_file)   
-            elif uploaded_file.name.startswith("Tower G Finishing Tracker"):
-                # st.markdown(f"### 📁 File: `{uploaded_file.name}`")  
-                Tower_G_Finishing_Tracker(uploaded_file) 
-            elif uploaded_file.name.startswith("Tower H Finishing Tracker"):
-                # st.markdown(f"### 📁 File: `{uploaded_file.name}`")  
-                Tower_H_Finishing_Tracker(uploaded_file) 
+                response = st.session_state.cos_client.get_object(Bucket="projectreport", Key=uploaded_file)
+                excel = pd.ExcelFile(io.BytesIO(response['Body'].read()))
+                Tower_H_Finishing_Tracker(excel) 
     return datas
 
 # uploaded_files = st.file_uploader("Upload Excel files", type=["xlsx", "xls"], accept_multiple_files=True)

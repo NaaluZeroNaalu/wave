@@ -6,6 +6,7 @@ import openpyxl
 import time
 import math
 from io import BytesIO
+import io
 
 st.title("Excel File Reader with Month and Year Filter")
 
@@ -18,31 +19,30 @@ API_KEY = "KEmIMzkw273qBcek8IdF-aShRUvFwH7K4psARTqOvNjI"
 
 if 'processed_df' not in st.session_state:
     st.session_state.processed_df = None
-
 if 'total_count_df' not in st.session_state:
     st.session_state.total_count_df = None
+if 'selected_file_name' not in st.session_state:
+    st.session_state.selected_file_name = None
+if 'sheduledf' not in st.session_state:
+    st.session_state.sheduledf = None
+if 'shedule' not in st.session_state:
+    st.session_state.shedule = None
 
-# Function to get access token
 def GetAccesstoken():
     auth_url = "https://iam.cloud.ibm.com/identity/token"
-    
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
         "Accept": "application/json"
     }
-    
     data = {
         "grant_type": "urn:ibm:params:oauth:grant-type:apikey",
-        "apikey": API_KEY
+        "apikey": API_KEY  # Define API_KEY
     }
     response = requests.post(auth_url, headers=headers, data=data)
-    
     if response.status_code != 200:
-        st.write(f"Failed to get access token: {response.text}")
+        st.error(f"Failed to get access token: {response.text}")
         return None
-    else:
-        token_info = response.json()
-        return token_info['access_token']
+    return response.json()['access_token']
 
 # Generate prompt for Watson API
 def generatePrompt(json_datas):
@@ -61,7 +61,6 @@ Example output:
     "Paint Walls": {{"Mar": 1, "Apr": 3, "May": 0}}
 }}
 Return only the JSON object, no code, no explanation, just the formatted JSON.
-
         """, 
         "parameters": {
             "decoding_method": "greedy",
@@ -71,25 +70,20 @@ Return only the JSON object, no code, no explanation, just the formatted JSON.
             "repetition_penalty": 1.05,
             "temperature": 0.5
         },
-        "model_id": MODEL_ID,
-        "project_id": PROJECT_ID
+        "model_id": MODEL_ID,  # Define MODEL_ID
+        "project_id": PROJECT_ID  # Define PROJECT_ID
     }
-    
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json",
         "Authorization": f"Bearer {GetAccesstoken()}"
     }
-    
     if not headers["Authorization"]:
         return "Error: No valid access token."
-    
-    response = requests.post(WATSONX_API_URL, headers=headers, json=body)
-    
+    response = requests.post(WATSONX_API_URL, headers=headers, json=body)  # Define WATSONX_API_URL
     if response.status_code != 200:
-        st.write(f"Failed to generate prompt: {response.text}")
+        st.error(f"Failed to generate prompt: {response.text}")
         return "Error generating prompt"
-    # st.write(json_datas)
     return response.json()['results'][0]['generated_text'].strip()
 
 # Function to create chunks and process data
@@ -98,91 +92,64 @@ def createChunk(result_json, chunk_size=2000):
     num_chunks = (num_rows + chunk_size - 1) // chunk_size  
     all_chunks = {} 
     temp = []
-
     st.write(f"Filtered rows in JSON format (split into {chunk_size}-row chunks):")
- 
     for i in range(num_chunks):
         start_idx = i * chunk_size
         end_idx = min((i + 1) * chunk_size, num_rows)
         chunk_data = result_json[start_idx:end_idx]
-
         processed_data = json.loads(generatePrompt(chunk_data)) 
         temp.append(processed_data)  
-
         all_chunks[f"chunk_{i + 1}"] = chunk_data
-
     
     table_data = []
-
-
     all_months = set()
-
-    # Gather all unique months across all chunks
     for chunk in temp:
         for activity, months in chunk.items():
-            all_months.update(months.keys())  # Get all unique month names
-
-    # Sort months in order
+            all_months.update(months.keys())
     all_months = sorted(all_months, key=lambda x: pd.to_datetime(x, format='%b').month)
-
-    # Now build the rows for the DataFrame
+    
     for chunk in temp:
         for activity, months in chunk.items():
             row = {'Activity Name': activity}
-            total_count = 0  # Initialize total count for each activity
+            total_count = 0
             for month in all_months:
-                count = months.get(month, 0)  # Default to 0 if the month is not present for the activity
+                count = months.get(month, 0)
                 row[month] = count
-                total_count += count  # Add the month count to the total
-            row['Total Count'] = total_count  # Add total count for the activity
+                total_count += count
+            row['Total Count'] = total_count
             table_data.append(row)
-
-    # Convert the table_data into a DataFrame
+    
     df = pd.DataFrame(table_data)
-
-    # Display the DataFrame in Streamlit
     st.write("Activity Counts Table by Month")
     st.dataframe(df)
 
-
-    
-
-st.title("Excel File Activity Processor")
-
-uploaded_files = st.file_uploader("Upload Excel files", type="xlsx", accept_multiple_files=True)
-
-def process_file(uploaded_file):
-    workbook = openpyxl.load_workbook(uploaded_file)
+# Function to process Excel file
+def process_file(file_stream):
+    workbook = openpyxl.load_workbook(file_stream)
     activity_col_idx = 5  
-
     if "TOWER 4 FINISHING." in workbook.sheetnames:
         sheet_name = "TOWER 4 FINISHING."
         sheet = workbook[sheet_name]
-
         non_bold_rows = [
             row_idx for row_idx, row in enumerate(sheet.iter_rows(min_row=17, max_col=16), start=16)
             if row[activity_col_idx].font and not row[activity_col_idx].font.b
         ]
-
-        df = pd.read_excel(uploaded_file, sheet_name=sheet_name, skiprows=15)
+        df = pd.read_excel(file_stream, sheet_name=sheet_name, skiprows=15)
         df.columns = ['Module', 'Floor', 'Flat', 'Domain', 'Activity ID', 'Activity Name', 
                       'Monthly Look Ahead', 'Baseline Duration', 'Baseline Start', 'Baseline Finish', 
                       'Actual Start', 'Actual Finish', '%Complete', 'Start', 'Finish', 'Delay Reasons']
-
+    
     elif "M7 T5" in workbook.sheetnames:
         sheet_name = "M7 T5"
         sheet = workbook[sheet_name]
-
         non_bold_rows = [
             row_idx for row_idx, row in enumerate(sheet.iter_rows(min_row=17, max_col=16), start=16)
-            if row[activity_col_idx].font and not row[6].font.b
+            if row[activity_col_idx].font and not row[activity_col_idx].font.b  # Fixed index
         ]
-
-        df = pd.read_excel(uploaded_file, sheet_name=sheet_name)
-        expected_columns = ['Module', 'Floor', 'Flat', 'Domain','Monthly Look', 'Activity ID', 'Activity Name', 
-                            'Monthly Look Ahead', 'Baseline Duration', 'Baseline Start', 'Baseline Finish', 
-                            'Actual Start', 'Actual Finish', '%Complete', 'Start', 'Finish', 'Delay Reasons']
-        
+        df = pd.read_excel(file_stream, sheet_name=sheet_name)
+        expected_columns = ['Module', 'Floor', 'Flat', 'Domain', 'Monthly Look', 'Activity ID', 'Activity Name', 
+                           'Monthly Look Ahead', 'Baseline Duration', 'Baseline Start', 'Baseline Finish', 
+                           'Actual Start', 'Actual Finish', '%Complete', 'Start', 'Finish', 'Delay Reasons']
         actual_cols = len(df.columns)
         if actual_cols >= len(expected_columns):
             df.columns = expected_columns + [f'Extra_{i}' for i in range(actual_cols - len(expected_columns))]
@@ -193,10 +160,9 @@ def process_file(uploaded_file):
 
     required_columns = ['Module', 'Floor', 'Flat', 'Activity ID', 'Activity Name', 'Start', 'Finish']
     df = df[[col for col in required_columns if col in df.columns]]
-
     df.index = df.index + 16
     df = df.loc[df.index.isin(non_bold_rows)]
-
+    
     if 'Start' in df.columns:
         df['Start'] = pd.to_datetime(df['Start'], errors='coerce', dayfirst=True)
     if 'Finish' in df.columns:
@@ -207,24 +173,47 @@ def process_file(uploaded_file):
     
     return df
 
+# Function to convert DataFrame to Excel
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=True, sheet_name='Activity Counts')
     return output.getvalue()
 
-# ========== SIDEBAR FILE SELECTOR ==========
-if uploaded_files:
-    file_names = [file.name for file in uploaded_files]
-    selected_file_name = st.sidebar.selectbox("Select a file to process", file_names)
+# Function to get COS files
+def get_cos_files():
+    try:
+        response = st.session_state.cos_client.list_objects_v2(Bucket="projectreport")
+        files = [obj['Key'] for obj in response.get('Contents', []) if obj['Key'].endswith('.xlsx')]
+        if not files:
+            st.warning("No .xlsx files found in the bucket 'projectreport'. Please ensure Excel files are uploaded.")
+        return files
+    except Exception as e:
+        st.error(f"Error fetching COS files: {e}")
+        return []
 
-    selected_file = next((f for f in uploaded_files if f.name == selected_file_name), None)
+# Streamlit App
+st.title("Excel File Activity Processor")
 
-    if selected_file:
-        df = process_file(selected_file)
-        st.session_state.processed_df = df
+# Get files from COS
+files = get_cos_files()
 
-# ========== DATA DISPLAY ==========
+# Sidebar file selector
+if files:
+    selected_file_name = st.sidebar.selectbox("Select a file to process", files)
+    
+    # Process file only if the selected file has changed
+    if selected_file_name and st.session_state.selected_file_name != selected_file_name:
+        try:
+            response = st.session_state.cos_client.get_object(Bucket="projectreport", Key=selected_file_name)
+            st.session_state.processed_df = process_file(io.BytesIO(response['Body'].read()))
+            st.session_state.selected_file_name = selected_file_name
+            st.success(f"Processed file: {selected_file_name}")
+        except Exception as e:
+            st.error(f"Error processing file {selected_file_name}: {e}")
+            st.session_state.processed_df = None
+
+# Data display and filtering
 if st.session_state.get("processed_df") is not None:
     df = st.session_state.processed_df
 
@@ -234,6 +223,7 @@ if st.session_state.get("processed_df") is not None:
     selected_year = st.sidebar.selectbox('Select Year', available_years, index=len(available_years)-1)
     selected_months = st.sidebar.multiselect('Select Months', available_months, default=available_months)
 
+    # Apply filtering on cached DataFrame
     filtered_df = df[(df['Finish_Year'] == selected_year) & (df['Finish_Month_Name'].isin(selected_months))]
 
     st.write(f"Filtered rows for {', '.join(selected_months)} {selected_year}")
@@ -247,9 +237,7 @@ if st.session_state.get("processed_df") is not None:
     mar_count = len(result[(result['Activity Name'] == 'EL-Third Fix ') & (result['Finish_Month_Name'] == 'Mar')])
     st.write(f"Number of 'EL-Third Fix' in 'Mar': {mar_count}")
 
-    month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
+    month_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     activity_month_counts = pd.pivot_table(
         filtered_df,
         values='Activity ID',
@@ -258,22 +246,14 @@ if st.session_state.get("processed_df") is not None:
         aggfunc='count',
         fill_value=0
     )
-
     existing_months = [m for m in month_order if m in activity_month_counts.columns]
     activity_month_counts = activity_month_counts.reindex(columns=existing_months)
     activity_month_counts['Total Count'] = activity_month_counts.sum(axis=1)
 
-    # st.write(f"Activity counts by month for {selected_year}:")
-    # st.write(activity_month_counts)
     st.session_state.sheduledf = activity_month_counts
-
     st.session_state.shedule = to_excel(activity_month_counts)
-    # st.download_button(
-    #     label="Download as Excel",
-    #     data=excel_file,
-    #     file_name=f"activity_counts_{selected_year}.xlsx",
-    #     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    # )
 
     if st.button('Count The activity'):
         createChunk(result_json)
+else:
+    st.warning("No processed data available. Please select and process a file.")

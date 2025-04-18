@@ -9,6 +9,7 @@ pages = {
         st.Page("shedule_report.py",title="Flatwise shedule report",icon=":material/apartment:"),
         st.Page("safety.py",title="Safety report",icon=":material/engineering:"),
         st.Page("house.py",title="House report",icon=":material/home:"),
+        st.Page("testcos.py",title="Test",icon=":material/home:")
     ]
 }
 
