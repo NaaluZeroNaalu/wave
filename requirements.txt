@@ -2,4 +2,4 @@ openpyxl
 bs4
 dotenv
 XlsxWriter
-ibm_boto3
+ibm_cos_sdk
